@@ -260,6 +260,7 @@ function startDeathRespawn(): void {
 
   barn.slideIn(0.6, () => {
     barn.closeGate();
+    mower.root.setEnabled(true);  // make mower visible again for the respawn walk
     mower.teleportToWorld(BARN_SPAWN_X, MOWER_START_Y, INTRO_Z);
 
     // Short beat then gate opens
@@ -343,11 +344,17 @@ function triggerDeath(): void {
   isDead = true;
   lives--;
 
-  // Blast + shake at mower position
+  // Blast + shake at mower position (works for all death scenarios —
+  // trail hit, direct rabbit collision, and any future triggers,
+  // since they all funnel through this function)
   const blastPos = mower.root.position.clone();
   blastPos.y += 0.3;
   spawnBlast(scene, blastPos);
   cameraAnimator.shake(0.45, 0.55);
+
+  // Hide the mower immediately so no empty-mesh patch lingers at the
+  // death spot during the freeze before the respawn sequence starts
+  mower.root.setEnabled(false);
 
   trail.cancel(grid, renderer);
   updateHUD();
@@ -366,6 +373,7 @@ $("btnNextLevel")      .addEventListener("click", advanceLevel);
 $("btnMenu")           .addEventListener("click", returnToMenu);
 $("btnRetry")          .addEventListener("click", startPlaying);
 $("btnMenuTimeUp")     .addEventListener("click", returnToMenu);
+$("btnRetryGameOver")  .addEventListener("click", startPlaying);
 $("btnMenuGameOver")   .addEventListener("click", returnToMenu);
 $("btnMenuGameComplete").addEventListener("click", returnToMenu);
 $("btnResume")         .addEventListener("click", togglePause);
