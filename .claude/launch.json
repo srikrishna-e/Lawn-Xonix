@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "lawn-xonix",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["/Users/srikrishnaelangovan/Downloads/claude/Lawn-Xonix/node_modules/.bin/vite"],
+      "port": 3000
+    }
+  ]
+}

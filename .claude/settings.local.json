@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "WebSearch",
+      "Bash(npx tsc:*)",
+      "Read(//opt/homebrew/Cellar/node/25.2.1/bin/**)",
+      "Bash(/opt/homebrew/bin/node --version)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(/opt/homebrew/bin/node node_modules/.bin/tsc --noEmit)",
+      "Bash(grep \"skyColor\" /Users/srikrishnaelangovan/Downloads/claude/Lawn-Xonix/src/themes/*.ts)"
+    ]
+  }
+}

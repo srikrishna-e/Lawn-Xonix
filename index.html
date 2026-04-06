@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lawn Xonix</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: #000; overflow: hidden; font-family: 'Segoe UI', monospace; }
+      canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+
+      /* ── HUD ── */
+      #hud {
+        position: absolute;
+        top: 16px; left: 0; right: 0;
+        display: none;
+        justify-content: center;
+        gap: 40px;
+        color: #fff;
+        font: bold 20px monospace;
+        text-shadow: 0 0 6px #000, 0 0 14px #000;
+        pointer-events: none;
+      }
+      #hudTimer { color: #ffe066; }
+      #hudTimer.urgent { color: #ff4444; animation: pulse 0.5s infinite alternate; }
+      #hudScore { color: #ffe066; }
+      @keyframes pulse { from { opacity: 1; } to { opacity: 0.4; } }
+
+      /* ── OVERLAY BASE ── */
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        background: rgba(0,0,0,0.72);
+        color: #fff;
+      }
+      .overlay h1 {
+        font-size: 52px;
+        font-weight: 900;
+        letter-spacing: 2px;
+        color: #7dff5c;
+        text-shadow: 0 0 20px #3a9e20, 0 4px 0 #1a5c08;
+      }
+      .overlay p {
+        font-size: 18px;
+        color: #cce8b8;
+        text-align: center;
+        max-width: 360px;
+        line-height: 1.6;
+      }
+      .overlay button {
+        margin-top: 8px;
+        padding: 14px 48px;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        background: #4caf2a;
+        color: #fff;
+        box-shadow: 0 4px 0 #256b12, 0 6px 18px rgba(0,0,0,0.5);
+        transition: transform 0.08s, box-shadow 0.08s;
+      }
+      .overlay button:hover { background: #5ec934; transform: translateY(-2px); box-shadow: 0 6px 0 #256b12, 0 8px 22px rgba(0,0,0,0.5); }
+      .overlay button:active { transform: translateY(2px); box-shadow: 0 2px 0 #256b12; }
+      .overlay button.secondary {
+        background: #555;
+        box-shadow: 0 4px 0 #222, 0 6px 18px rgba(0,0,0,0.4);
+      }
+      .overlay button.secondary:hover { background: #777; box-shadow: 0 6px 0 #222, 0 8px 22px rgba(0,0,0,0.4); }
+
+      /* ── LEVEL SELECT MODAL ── */
+      #levelSelectModal {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,0.85);
+        z-index: 10;
+      }
+      #levelSelectModal .modal-box {
+        background: #1a2a14;
+        border: 2px solid #4caf2a;
+        border-radius: 16px;
+        padding: 36px 48px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        max-width: 480px;
+        width: 90%;
+        box-shadow: 0 0 40px rgba(76,175,42,0.3);
+      }
+      #levelSelectModal h2 {
+        font-size: 26px;
+        font-weight: 900;
+        color: #7dff5c;
+        letter-spacing: 2px;
+        text-shadow: 0 0 12px #3a9e20;
+        margin-bottom: 4px;
+      }
+      .level-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+      }
+      .level-card {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: #0d1e0a;
+        border: 2px solid #2e5a1a;
+        border-radius: 10px;
+        padding: 12px 18px;
+        cursor: pointer;
+        transition: border-color 0.12s, background 0.12s;
+        font-family: monospace;
+      }
+      .level-card:hover { background: #1a3810; border-color: #5ec934; }
+      .level-card .lc-num {
+        font-size: 20px;
+        font-weight: 900;
+        color: #7dff5c;
+        min-width: 28px;
+      }
+      .level-card .lc-info { flex: 1; text-align: left; }
+      .level-card .lc-name {
+        font-size: 16px;
+        font-weight: 700;
+        color: #c8f0a0;
+      }
+      .level-card .lc-detail { display: none; }
+      .level-card .lc-swatch { display: none; }
+      #levelSelectModal .close-btn {
+        margin-top: 4px;
+        padding: 10px 36px;
+        font-size: 16px;
+        font-weight: 700;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        background: #555;
+        color: #fff;
+        box-shadow: 0 4px 0 #222;
+        transition: transform 0.08s;
+      }
+      #levelSelectModal .close-btn:hover { background: #777; transform: translateY(-2px); }
+
+      /* ── HOW TO PLAY MODAL ── */
+      #howToPlayModal {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,0.85);
+        z-index: 10;
+      }
+      #howToPlayModal .modal-box {
+        background: #1a2a14;
+        border: 2px solid #4caf2a;
+        border-radius: 16px;
+        padding: 40px 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 24px;
+        max-width: 420px;
+        width: 90%;
+        box-shadow: 0 0 40px rgba(76,175,42,0.3);
+      }
+      #howToPlayModal h2 {
+        font-size: 28px;
+        font-weight: 900;
+        color: #7dff5c;
+        letter-spacing: 2px;
+        text-shadow: 0 0 12px #3a9e20;
+      }
+      .key-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        width: 100%;
+      }
+      .key-label {
+        display: flex;
+        gap: 6px;
+      }
+      .key {
+        background: #2e4a20;
+        border: 2px solid #5ec934;
+        border-bottom-width: 4px;
+        border-radius: 6px;
+        padding: 6px 12px;
+        font: bold 15px monospace;
+        color: #c8f0a0;
+        min-width: 36px;
+        text-align: center;
+      }
+      .key-desc {
+        font-size: 15px;
+        color: #aad490;
+        line-height: 1.4;
+      }
+      #howToPlayModal button {
+        margin-top: 8px;
+        padding: 12px 40px;
+        font-size: 18px;
+        font-weight: 700;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        background: #4caf2a;
+        color: #fff;
+        box-shadow: 0 4px 0 #256b12;
+        transition: transform 0.08s;
+      }
+      #howToPlayModal button:hover { background: #5ec934; transform: translateY(-2px); }
+
+      /* ── PAUSE ── */
+      #pauseScreen h1 { color: #ffe066; text-shadow: 0 0 20px #cc9900, 0 4px 0 #7a5c00; }
+
+      /* ── LEVEL COMPLETE ── */
+      #levelCompleteScreen h1 { color: #ffe066; text-shadow: 0 0 20px #cc9900, 0 4px 0 #7a5c00; }
+      #levelCompleteScreen .stat {
+        font-size: 22px;
+        font-weight: 700;
+        color: #fff;
+      }
+
+      /* ── GAME COMPLETE ── */
+      #gameCompleteScreen h1 { color: #ffe066; text-shadow: 0 0 20px #cc9900, 0 4px 0 #7a5c00; }
+
+      /* ── GAME OVER ── */
+      #gameOverScreen h1 { color: #ff5555; text-shadow: 0 0 20px #991111, 0 4px 0 #550000; }
+
+      /* ── TIME UP ── */
+      #timeUpScreen h1 { color: #ff9944; text-shadow: 0 0 20px #cc5500, 0 4px 0 #5c2800; }
+    </style>
+  </head>
+  <body>
+    <canvas id="renderCanvas" tabindex="0"></canvas>
+
+    <!-- HUD (shown during gameplay) -->
+    <div id="hud">
+      <span id="hudLives">❤️❤️❤️</span>
+      <span id="hudPercent">Mowed: 0%</span>
+      <span id="hudScore">★ 0</span>
+      <span id="hudTimer">⏱ 60s</span>
+    </div>
+
+    <!-- Start Menu -->
+    <div id="menuScreen" class="overlay">
+      <h1>🌿 Lawn Xonix</h1>
+      <button id="btnStart">▶ Start Game</button>
+      <button id="btnLevels" class="secondary">☰ Levels</button>
+      <button id="btnHowToPlay" class="secondary">? How to Play</button>
+    </div>
+
+    <!-- Level Select Modal -->
+    <div id="levelSelectModal">
+      <div class="modal-box">
+        <h2>Select Level</h2>
+        <div class="level-grid" id="levelGrid"></div>
+        <button class="close-btn" id="btnCloseLevelSelect">Back</button>
+      </div>
+    </div>
+
+    <!-- How to Play Modal -->
+    <div id="howToPlayModal">
+      <div class="modal-box">
+        <h2>How to Play</h2>
+        <div class="key-row">
+          <div class="key-label">
+            <span class="key">↑</span>
+            <span class="key">↓</span>
+            <span class="key">←</span>
+            <span class="key">→</span>
+          </div>
+          <div class="key-desc">Move the mower</div>
+        </div>
+        <div class="key-row">
+          <div class="key-label"><span class="key">ESC</span></div>
+          <div class="key-desc">Pause / Resume</div>
+        </div>
+        <button id="btnCloseHowTo">Got it!</button>
+      </div>
+    </div>
+
+    <!-- Pause Screen -->
+    <div id="pauseScreen" class="overlay" style="display:none">
+      <h1>⏸ Paused</h1>
+      <button id="btnResume">▶ Resume</button>
+      <button id="btnMenuPause" class="secondary">↩ Main Menu</button>
+    </div>
+
+    <!-- Level Complete -->
+    <div id="levelCompleteScreen" class="overlay" style="display:none">
+      <h1>🏆 Level Complete!</h1>
+      <div class="stat" id="lcPercent">Mowed: 0%</div>
+      <div class="stat" id="lcTime">Time left: 0s</div>
+      <div class="stat" id="lcScore"></div>
+      <div class="stat" style="color:#ffe066" id="lcTotal">Total: 0</div>
+      <button id="btnNextLevel">▶ Next Level</button>
+      <button id="btnMenu" class="secondary">↩ Main Menu</button>
+    </div>
+
+    <!-- Game Complete -->
+    <div id="gameCompleteScreen" class="overlay" style="display:none">
+      <h1>🌟 You Win!</h1>
+      <p>You mowed all 5 levels. The lawn has never looked better!</p>
+      <button id="btnMenuGameComplete">↩ Main Menu</button>
+    </div>
+
+    <!-- Time Up -->
+    <div id="timeUpScreen" class="overlay" style="display:none">
+      <h1>⏰ Time's Up!</h1>
+      <p>You ran out of time. Better luck next time!</p>
+      <button id="btnRetry">↺ Retry Level</button>
+      <button id="btnMenuTimeUp" class="secondary">↩ Main Menu</button>
+    </div>
+
+    <!-- Game Over -->
+    <div id="gameOverScreen" class="overlay" style="display:none">
+      <h1>💀 Game Over</h1>
+      <p>You ran out of lives. Try again!</p>
+      <button id="btnMenuGameOver">↩ Main Menu</button>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
