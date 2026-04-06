@@ -13,6 +13,7 @@ import { Mower } from "./entities/Mower";
 import { Rabbit } from "./entities/Rabbit";
 import { BarnScene, BARN_SPAWN_X, BARN_SPAWN_Z, GATE_APPROACH_X } from "./rendering/BarnScene";
 import { CameraAnimator } from "./utils/CameraAnimator";
+import { spawnBlast } from "./effects/BlastEffect";
 
 // ── Constants ────────────────────────────────────────────────
 const TOTAL_LIVES  = 3;
@@ -341,23 +342,22 @@ function triggerDeath(): void {
   if (isDead) return;
   isDead = true;
   lives--;
-  scene.clearColor = new Color4(0.8, 0.1, 0.1, 1);
-  cameraAnimator.shake(0.45, 0.55); // impact shake
+
+  // Blast + shake at mower position
+  const blastPos = mower.root.position.clone();
+  blastPos.y += 0.3;
+  spawnBlast(scene, blastPos);
+  cameraAnimator.shake(0.45, 0.55);
+
   trail.cancel(grid, renderer);
   updateHUD();
 
   if (lives <= 0) {
-    setTimeout(() => {
-      applyTheme();
-      showGameOver();
-    }, DEATH_FREEZE);
+    setTimeout(() => showGameOver(), DEATH_FREEZE);
     return;
   }
 
-  setTimeout(() => {
-    applyTheme();
-    startDeathRespawn();
-  }, DEATH_FREEZE);
+  setTimeout(() => startDeathRespawn(), DEATH_FREEZE);
 }
 
 // ── Button wiring ─────────────────────────────────────────────
