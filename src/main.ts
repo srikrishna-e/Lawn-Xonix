@@ -368,6 +368,7 @@ $("btnMenuTimeUp")     .addEventListener("click", returnToMenu);
 $("btnMenuGameOver")   .addEventListener("click", returnToMenu);
 $("btnMenuGameComplete").addEventListener("click", returnToMenu);
 $("btnResume")         .addEventListener("click", togglePause);
+$("btnRestartPause")   .addEventListener("click", () => { pauseScreen.style.display = "none"; startPlaying(); });
 $("btnMenuPause")      .addEventListener("click", returnToMenu);
 $("btnHowToPlay")         .addEventListener("click", () => { howToPlayModal.style.display = "flex"; });
 $("btnCloseHowTo")        .addEventListener("click", () => { howToPlayModal.style.display = "none"; });
