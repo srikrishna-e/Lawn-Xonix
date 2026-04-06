@@ -66,7 +66,7 @@ export class Rabbit {
     return worldToGrid(this.wx, this.wz);
   }
 
-  update(dt: number, grid: Grid, trail: Trail): boolean {
+  update(dt: number, grid: Grid, trail: Trail, moveOnly = false): boolean {
     const nextX = this.wx + this.vx * dt;
     const nextZ = this.wz + this.vz * dt;
 
@@ -88,8 +88,9 @@ export class Rabbit {
     // Hop animation
     this.root.position.y = RABBIT_Y + Math.abs(Math.sin(Date.now() / 180)) * 0.35;
 
-    // Trail hit detection
-    if (trail.isActive) {
+    // Trail hit detection — skipped when moveOnly so rabbits can keep moving
+    // during the death freeze and respawn sequence without re-triggering death.
+    if (!moveOnly && trail.isActive) {
       const { gx, gy } = worldToGrid(this.wx, this.wz);
       if (grid.isInBounds(gx, gy) && grid.get(gx, gy) === TileState.TRAIL) {
         return true;

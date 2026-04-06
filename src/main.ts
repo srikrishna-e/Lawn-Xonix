@@ -420,6 +420,13 @@ engine.runRenderLoop(() => {
     mower.update(dt, new Set<string>(), trail, renderer);
   }
 
+  // Keep rabbits moving during the death freeze (playing+isDead) and the
+  // full respawn sequence — collision detection is disabled so they can't
+  // re-trigger death while the barn sequence is playing.
+  if ((phase === "playing" && isDead) || phase === "deathRespawn") {
+    for (const rabbit of rabbits) rabbit.update(dt, grid, trail, true);
+  }
+
   if (phase === "playing" && !isDead) {
     timeLeft -= dt;
     if (timeLeft <= 0) {
