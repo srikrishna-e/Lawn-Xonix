@@ -243,7 +243,7 @@ function startIntro(): void {
           () => {
             // Sync grid state, show HUD, start the clock
             mower.respawn();
-            barn.slideOut(1.5);
+            barn.slideOut(2.5);
             hud.style.display = "flex";
             phase = "playing";
           },
@@ -273,7 +273,7 @@ function startDeathRespawn(): void {
           RESPAWN_WALK_SPEED,
           () => {
             mower.respawn();
-            barn.slideOut(1.2);
+            barn.slideOut(2.2);
             isDead = false;
             phase  = "playing";
           },
