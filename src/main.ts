@@ -352,7 +352,11 @@ function triggerDeath(): void {
   spawnBlast(scene, blastPos);
   cameraAnimator.shake(0.45, 0.55);
 
-  // Hide the mower immediately so no ghost mesh lingers at the death spot
+  // Cancel any in-progress tile move FIRST — if we wait until teleportToWorld()
+  // (called ~1.6s later inside the barn-slide callback), the render loop will
+  // call mower.update() with isMoving=true during phase="deathRespawn" and
+  // fire onArrival() on the stale grid cell, stamping a phantom TRAIL tile.
+  mower.cancelMovement();
   mower.hide();
 
   trail.cancel(grid, renderer);

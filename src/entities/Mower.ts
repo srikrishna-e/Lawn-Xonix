@@ -259,6 +259,14 @@ export class Mower {
     return 0;
   }
 
+  /** Abort any in-progress grid step so onArrival() is never called on
+   *  a stale position (call immediately on death, before any phase change). */
+  cancelMovement(): void {
+    this.isMoving        = false;
+    this.introWalking    = false;
+    this.introOnComplete = null;
+  }
+
   /** Instantly hide all mower meshes (survives TransformNode setEnabled quirks). */
   hide(): void {
     this.root.getChildMeshes().forEach(m => { m.isVisible = false; });
