@@ -224,8 +224,8 @@ function startIntro(): void {
   camera.beta   = INTRO_CAM_BETA;
   camera.radius = INTRO_CAM_RADIUS;
 
-  // Animate camera swoop to play angle (1.5 s)
-  cameraAnimator.animateTo(PLAY_CAM_BETA, PLAY_CAM_RADIUS, 1.5);
+  // Animate camera swoop to play angle (2.5 s)
+  cameraAnimator.animateTo(PLAY_CAM_BETA, PLAY_CAM_RADIUS, 2.5);
 
   // Place mower inside barn entrance
   mower.teleportToWorld(BARN_SPAWN_X, MOWER_START_Y, INTRO_Z);
