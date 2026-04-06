@@ -342,6 +342,7 @@ function triggerDeath(): void {
   isDead = true;
   lives--;
   scene.clearColor = new Color4(0.8, 0.1, 0.1, 1);
+  cameraAnimator.shake(0.45, 0.55); // impact shake
   trail.cancel(grid, renderer);
   updateHUD();
 
