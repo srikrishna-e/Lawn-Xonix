@@ -33,6 +33,13 @@ export class Mower {
   private isMoving = false;
   private targetRotY = 0;  // radians, Y-axis rotation to face movement direction
 
+  // ── Intro / respawn walk state ─────────────────────────────────────────────
+  private introWalking    = false;
+  private introPath:       { x: number; z: number }[] = [];
+  private introPathIdx     = 0;
+  private introSpeed       = 0;
+  private introOnComplete: (() => void) | null = null;
+
   constructor(scene: Scene, private grid: Grid, shadows: ShadowGenerator) {
     this.root = new TransformNode("mowerRoot", scene);
     const { deckColor, bodyColor, handleColor, wheelColor } = DEFAULT_MOWER;
@@ -106,8 +113,81 @@ export class Mower {
     this.root.position.set(x, MOWER_Y, z);
   }
 
+  // ── Intro walk API ──────────────────────────────────────────────────────────
+
+  /**
+   * Move the mower along a sequence of world-space waypoints at `speed` units/s.
+   * `onComplete` fires once the last waypoint is reached.
+   */
+  startIntroWalk(
+    path: { x: number; z: number }[],
+    speed: number,
+    onComplete: () => void,
+  ): void {
+    this.introPath       = path;
+    this.introPathIdx    = 0;
+    this.introSpeed      = speed;
+    this.introOnComplete = onComplete;
+    this.introWalking    = true;
+  }
+
+  cancelIntroWalk(): void {
+    this.introWalking    = false;
+    this.introOnComplete = null;
+  }
+
+  /** Teleport root mesh to an arbitrary world position (no grid sync). */
+  teleportToWorld(x: number, y: number, z: number): void {
+    this.root.position.set(x, y, z);
+  }
+
+  private updateIntroWalk(dt: number): void {
+    if (this.introPathIdx >= this.introPath.length) {
+      this.introWalking = false;
+      const cb = this.introOnComplete;
+      this.introOnComplete = null;
+      cb?.();
+      return;
+    }
+
+    const target = this.introPath[this.introPathIdx]!;
+    const dx   = target.x - this.root.position.x;
+    const dz   = target.z - this.root.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    const step = this.introSpeed * dt;
+
+    if (dist < 0.001 || step >= dist) {
+      // Snap to waypoint and advance
+      this.root.position.x = target.x;
+      this.root.position.z = target.z;
+      this.introPathIdx++;
+      if (this.introPathIdx >= this.introPath.length) {
+        this.introWalking = false;
+        const cb = this.introOnComplete;
+        this.introOnComplete = null;
+        cb?.();
+      }
+    } else {
+      const nx = dx / dist;
+      const nz = dz / dist;
+      this.root.position.x += nx * step;
+      this.root.position.z += nz * step;
+      // Face direction of travel.
+      // rotation.y=0 → faces -Z; formula: atan2(-nx, -nz)
+      const targetRot = Math.atan2(-nx, -nz);
+      this.root.rotation.y = lerpAngle(this.root.rotation.y, targetRot, Math.min(dt * 12, 1));
+    }
+  }
+
+  // ── Normal update ────────────────────────────────────────────────────────────
+
   /** Returns the number of tiles claimed this frame (>0 when a trail closes). */
   update(dt: number, keys: Set<string>, trail: Trail, renderer: GridRenderer, rabbitPositions: { gx: number; gy: number }[] = []): number {
+    // Intro / respawn walk overrides normal input
+    if (this.introWalking) {
+      this.updateIntroWalk(dt);
+      return 0;
+    }
     if (this.isMoving) {
       this.moveTimer += dt;
       const t = Math.min(this.moveTimer / PLAYER_MOVE_DURATION, 1);

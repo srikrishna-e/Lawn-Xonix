@@ -11,10 +11,25 @@ import { Trail } from "./core/Trail";
 import { GridRenderer } from "./rendering/GridRenderer";
 import { Mower } from "./entities/Mower";
 import { Rabbit } from "./entities/Rabbit";
+import { BarnScene, BARN_SPAWN_X, BARN_SPAWN_Z, GATE_APPROACH_X } from "./rendering/BarnScene";
+import { CameraAnimator } from "./utils/CameraAnimator";
 
 // ── Constants ────────────────────────────────────────────────
 const TOTAL_LIVES  = 3;
-const DEATH_FREEZE = 1200; // ms
+const DEATH_FREEZE = 1000; // ms — red-flash freeze before respawn sequence
+
+// Intro / respawn walk world coords
+const INTRO_Z          = BARN_SPAWN_Z;   // 0.5  — matches mower start row
+const MOWER_START_X    = 19.5;           // gridToWorld(39, 14).x
+const MOWER_START_Y    = 0.55;           // TILE_HEIGHTS[0]
+const INTRO_WALK_SPEED = 5.0;            // world units / second
+const RESPAWN_WALK_SPEED = 7.5;
+
+// Camera angles
+const PLAY_CAM_BETA   = Math.PI / 4;
+const PLAY_CAM_RADIUS = 64;              // gridSpan * 1.6
+const INTRO_CAM_BETA  = 0.18;            // nearly overhead
+const INTRO_CAM_RADIUS = 52;
 
 // ── Level manager & score ────────────────────────────────────
 const levelManager = new LevelManager();
@@ -43,7 +58,10 @@ const lcTotal             = $("lcTotal")            as HTMLDivElement;
 const btnNextLevel        = $("btnNextLevel")       as HTMLButtonElement;
 
 // ── Game state ───────────────────────────────────────────────
-type Phase = "menu" | "playing" | "paused" | "dead" | "levelComplete" | "timeUp" | "gameOver" | "gameComplete";
+type Phase =
+  | "menu" | "intro" | "playing" | "paused"
+  | "dead" | "deathRespawn"
+  | "levelComplete" | "timeUp" | "gameOver" | "gameComplete";
 let phase: Phase = "menu";
 let lives    = TOTAL_LIVES;
 let timeLeft = 0;
@@ -69,6 +87,10 @@ sun.intensity = 1.1;
 
 const shadows = new ShadowGenerator(512, sun);
 shadows.useBlurExponentialShadowMap = true;
+
+// ── Persistent scene objects ──────────────────────────────────
+const barn           = new BarnScene(scene);        // starts off-screen; reset each intro
+const cameraAnimator = new CameraAnimator(camera);
 
 // ── Game objects ─────────────────────────────────────────────
 let grid:        Grid;
@@ -142,6 +164,7 @@ function showScreen(screen: HTMLDivElement | null): void {
 }
 
 function togglePause(): void {
+  if (phase === "intro" || phase === "deathRespawn") return; // can't pause during sequences
   if (phase === "playing") {
     phase = "paused";
     pauseScreen.style.display = "flex";
@@ -184,9 +207,80 @@ function buildLevelSelect(): void {
 function startPlaying(): void {
   initGame();
   showScreen(null);
-  hud.style.display = "flex";
   canvas.focus();
-  phase = "playing";
+  startIntro();
+}
+
+// ── Intro sequence ────────────────────────────────────────────
+function startIntro(): void {
+  phase = "intro";
+
+  // Barn back on screen, gate closed
+  barn.reset();
+
+  // Set camera to overhead position (temporarily unlock limits)
+  camera.lowerBetaLimit = 0;
+  camera.upperBetaLimit = Math.PI / 2;
+  camera.beta   = INTRO_CAM_BETA;
+  camera.radius = INTRO_CAM_RADIUS;
+
+  // Animate camera swoop to play angle (1.5 s)
+  cameraAnimator.animateTo(PLAY_CAM_BETA, PLAY_CAM_RADIUS, 1.5);
+
+  // Place mower inside barn entrance
+  mower.teleportToWorld(BARN_SPAWN_X, MOWER_START_Y, INTRO_Z);
+
+  // Walk mower to gate approach position
+  mower.startIntroWalk(
+    [{ x: GATE_APPROACH_X, z: INTRO_Z }],
+    INTRO_WALK_SPEED,
+    () => {
+      // Gate opens, then mower walks through to the platform start
+      barn.openGate(0.5, () => {
+        mower.startIntroWalk(
+          [{ x: MOWER_START_X, z: INTRO_Z }],
+          INTRO_WALK_SPEED,
+          () => {
+            // Sync grid state, show HUD, start the clock
+            mower.respawn();
+            barn.slideOut(1.5);
+            hud.style.display = "flex";
+            phase = "playing";
+          },
+        );
+      });
+    },
+  );
+}
+
+// ── Death-respawn sequence ────────────────────────────────────
+function startDeathRespawn(): void {
+  phase = "deathRespawn";
+
+  barn.slideIn(0.6, () => {
+    barn.closeGate();
+    mower.teleportToWorld(BARN_SPAWN_X, MOWER_START_Y, INTRO_Z);
+
+    // Short beat then gate opens
+    setTimeout(() => {
+      barn.openGate(0.4, () => {
+        // Walk in one shot from barn spawn through gate to start
+        mower.startIntroWalk(
+          [
+            { x: GATE_APPROACH_X, z: INTRO_Z },
+            { x: MOWER_START_X,   z: INTRO_Z },
+          ],
+          RESPAWN_WALK_SPEED,
+          () => {
+            mower.respawn();
+            barn.slideOut(1.2);
+            isDead = false;
+            phase  = "playing";
+          },
+        );
+      });
+    }, 250);
+  });
 }
 
 function showLevelComplete(): void {
@@ -261,9 +355,7 @@ function triggerDeath(): void {
 
   setTimeout(() => {
     applyTheme();
-    mower.respawn();
-    isDead = false;
-    phase = "playing";
+    startDeathRespawn();
   }, DEATH_FREEZE);
 }
 
@@ -305,6 +397,15 @@ showScreen(menuScreen);
 // ── Render loop ───────────────────────────────────────────────
 engine.runRenderLoop(() => {
   const dt = engine.getDeltaTime() / 1000;
+
+  // Always animate barn and camera regardless of phase
+  barn.update(dt);
+  cameraAnimator.update(dt);
+
+  // During intro/deathRespawn, drive the mower's walk animation
+  if (phase === "intro" || phase === "deathRespawn") {
+    mower.update(dt, new Set<string>(), trail, renderer);
+  }
 
   if (phase === "playing" && !isDead) {
     timeLeft -= dt;

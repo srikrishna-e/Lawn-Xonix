@@ -13,3 +13,9 @@ export function worldToGrid(wx: number, wz: number): { gx: number; gy: number } 
     gy: Math.floor(wz / TILE_SIZE + GRID_ROWS / 2),
   };
 }
+
+/** Smooth hermite easing — maps [0,1] → [0,1] with ease-in-out */
+export function smoothstep(t: number): number {
+  const c = Math.max(0, Math.min(1, t));
+  return c * c * (3 - 2 * c);
+}
