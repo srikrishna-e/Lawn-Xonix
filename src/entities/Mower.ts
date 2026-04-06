@@ -139,6 +139,11 @@ export class Mower {
   /** Teleport root mesh to an arbitrary world position (no grid sync). */
   teleportToWorld(x: number, y: number, z: number): void {
     this.root.position.set(x, y, z);
+    // Cancel any grid move that was in progress so onArrival() is never
+    // called on a stale grid position (which would stamp a spurious TRAIL tile).
+    this.isMoving     = false;
+    this.introWalking = false;
+    this.introOnComplete = null;
   }
 
   private updateIntroWalk(dt: number): void {
@@ -252,6 +257,16 @@ export class Mower {
       }
     }
     return 0;
+  }
+
+  /** Instantly hide all mower meshes (survives TransformNode setEnabled quirks). */
+  hide(): void {
+    this.root.getChildMeshes().forEach(m => { m.isVisible = false; });
+  }
+
+  /** Make all mower meshes visible again. */
+  show(): void {
+    this.root.getChildMeshes().forEach(m => { m.isVisible = true; });
   }
 
   dispose(): void {

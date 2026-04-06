@@ -260,7 +260,7 @@ function startDeathRespawn(): void {
 
   barn.slideIn(0.6, () => {
     barn.closeGate();
-    mower.root.setEnabled(true);  // make mower visible again for the respawn walk
+    mower.show();  // make mower visible again for the respawn walk
     mower.teleportToWorld(BARN_SPAWN_X, MOWER_START_Y, INTRO_Z);
 
     // Short beat then gate opens
@@ -352,9 +352,8 @@ function triggerDeath(): void {
   spawnBlast(scene, blastPos);
   cameraAnimator.shake(0.45, 0.55);
 
-  // Hide the mower immediately so no empty-mesh patch lingers at the
-  // death spot during the freeze before the respawn sequence starts
-  mower.root.setEnabled(false);
+  // Hide the mower immediately so no ghost mesh lingers at the death spot
+  mower.hide();
 
   trail.cancel(grid, renderer);
   updateHUD();
