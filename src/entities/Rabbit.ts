@@ -66,6 +66,10 @@ export class Rabbit {
     return worldToGrid(this.wx, this.wz);
   }
 
+  getWorldPos(): { x: number; z: number } {
+    return { x: this.wx, z: this.wz };
+  }
+
   update(dt: number, grid: Grid, trail: Trail, moveOnly = false): boolean {
     const nextX = this.wx + this.vx * dt;
     const nextZ = this.wz + this.vz * dt;

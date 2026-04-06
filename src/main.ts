@@ -339,17 +339,20 @@ function returnToMenu(): void {
 }
 
 // ── Death ────────────────────────────────────────────────────
-function triggerDeath(): void {
+/**
+ * @param impactWorldPos  Optional world position of the damage source
+ *   (e.g. rabbit location). A second blast fires there when it is far
+ *   enough from the mower so every damage type gets a visible effect.
+ */
+function triggerDeath(impactWorldPos?: Vector3): void {
   if (isDead) return;
   isDead = true;
   lives--;
 
-  // Blast + shake at mower position (works for all death scenarios —
-  // trail hit, direct rabbit collision, and any future triggers,
-  // since they all funnel through this function)
-  const blastPos = mower.root.position.clone();
-  blastPos.y += 0.3;
-  spawnBlast(scene, blastPos);
+  // Blast at mower + optional second blast at the damage point
+  const mowerBlastPos = mower.root.position.clone();
+  mowerBlastPos.y += 0.3;
+  spawnBlast(scene, mowerBlastPos, impactWorldPos);
   cameraAnimator.shake(0.45, 0.55);
 
   // Cancel any in-progress tile move FIRST — if we wait until teleportToWorld()
@@ -448,7 +451,8 @@ engine.runRenderLoop(() => {
 
     for (const rabbit of rabbits) {
       if (rabbit.update(dt, grid, trail)) {
-        triggerDeath();
+        const rp = rabbit.getWorldPos();
+        triggerDeath(new Vector3(rp.x, MOWER_START_Y + 0.3, rp.z));
         break;
       }
     }

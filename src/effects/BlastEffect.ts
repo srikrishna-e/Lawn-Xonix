@@ -7,7 +7,7 @@ import {
   SphereParticleEmitter,
 } from "@babylonjs/core";
 
-// Shared soft-glow texture — created once, reused for every blast
+// Shared soft-glow texture — created once, reused across all blasts
 let _blastTex: DynamicTexture | null = null;
 
 function getBlastTexture(scene: Scene): DynamicTexture {
@@ -17,7 +17,6 @@ function getBlastTexture(scene: Scene): DynamicTexture {
   const tex  = new DynamicTexture("blastParticleTex", { width: size, height: size }, scene, false);
   const ctx  = tex.getContext();
 
-  // Radial gradient: white hot core → yellow → orange → transparent edge
   const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
   g.addColorStop(0,    "rgba(255,255,255,1)");
   g.addColorStop(0.25, "rgba(255,230,80,0.95)");
@@ -32,90 +31,101 @@ function getBlastTexture(scene: Scene): DynamicTexture {
 }
 
 /**
- * Spawns a one-shot burst of fire/spark particles at `position`.
- * The ParticleSystem auto-disposes once all particles have died.
+ * Spawns a one-shot burst of fire / sparks / smoke at `position`.
+ *
+ * Uses emitRate + targetStopDuration instead of manualEmitCount —
+ * manualEmitCount drips particles through emitRate per frame which
+ * at the default rate of 10/s produces ~0 particles per 16 ms frame.
  */
-export function spawnBlast(scene: Scene, position: Vector3): void {
+function spawnBurstAt(scene: Scene, pos: Vector3): void {
+  const tex = getBlastTexture(scene);
+
   // ── Main fire burst ────────────────────────────────────────────────────────
-  const ps = new ParticleSystem("blast_fire", 160, scene);
-  ps.particleTexture = getBlastTexture(scene);
+  const fire = new ParticleSystem("blast_fire", 300, scene);
+  fire.particleTexture = tex;
+  fire.emitter         = pos.clone();
+  fire.particleEmitterType = new SphereParticleEmitter(0.15);
 
-  ps.emitter = position.clone();
+  fire.emitRate            = 3000;   // high rate → burst fills in < 1 frame
+  fire.targetStopDuration  = 0.06;   // emit for 60 ms then stop
+  fire.disposeOnStop       = true;
 
-  const sphereEmitter  = new SphereParticleEmitter(0.12);
-  ps.particleEmitterType = sphereEmitter;
+  fire.minEmitPower = 4;
+  fire.maxEmitPower = 12;
+  fire.minLifeTime  = 0.3;
+  fire.maxLifeTime  = 0.7;
 
-  ps.minEmitPower = 3.5;
-  ps.maxEmitPower = 9.0;
+  // Sizes tuned for camera distance ≈ 52 units (need ≥ 0.5 to be clearly visible)
+  fire.minSize = 0.5;
+  fire.maxSize = 1.4;
 
-  ps.minLifeTime  = 0.25;
-  ps.maxLifeTime  = 0.55;
+  fire.color1    = new Color4(1.0, 0.95, 0.25, 1.0);
+  fire.color2    = new Color4(1.0, 0.38, 0.02, 1.0);
+  fire.colorDead = new Color4(0.15, 0.04, 0.0,  0.0);
 
-  ps.minSize = 0.08;
-  ps.maxSize = 0.30;
+  fire.gravity   = new Vector3(0, -4, 0);
+  fire.blendMode = ParticleSystem.BLENDMODE_ADD;
+  fire.start();
 
-  ps.color1    = new Color4(1.0, 0.95, 0.25, 1.0);  // bright yellow
-  ps.color2    = new Color4(1.0, 0.38, 0.02, 1.0);  // deep orange
-  ps.colorDead = new Color4(0.15, 0.04, 0.0,  0.0); // fade to nothing
+  // ── Sparks ─────────────────────────────────────────────────────────────────
+  const sparks = new ParticleSystem("blast_sparks", 120, scene);
+  sparks.particleTexture       = tex;
+  sparks.emitter               = pos.clone();
+  sparks.particleEmitterType   = new SphereParticleEmitter(0.05);
 
-  ps.gravity = new Vector3(0, -3.5, 0);
+  sparks.emitRate           = 2000;
+  sparks.targetStopDuration = 0.05;
+  sparks.disposeOnStop      = true;
 
-  ps.blendMode      = ParticleSystem.BLENDMODE_ADD;  // additive → glowing look
-  ps.manualEmitCount = 110;   // emit exactly N then stop
-  ps.disposeOnStop   = true;
-  ps.start();
-
-  // ── Fast outward sparks ────────────────────────────────────────────────────
-  const sparks = new ParticleSystem("blast_sparks", 60, scene);
-  sparks.particleTexture = getBlastTexture(scene);
-
-  sparks.emitter = position.clone();
-  sparks.particleEmitterType = new SphereParticleEmitter(0.05);
-
-  sparks.minEmitPower = 7;
-  sparks.maxEmitPower = 16;
-
+  sparks.minEmitPower = 10;
+  sparks.maxEmitPower = 22;
   sparks.minLifeTime  = 0.15;
-  sparks.maxLifeTime  = 0.45;
+  sparks.maxLifeTime  = 0.5;
+  sparks.minSize = 0.18;
+  sparks.maxSize = 0.55;
 
-  sparks.minSize = 0.03;
-  sparks.maxSize = 0.10;
+  sparks.color1    = new Color4(1.0, 1.0, 0.8, 1.0);
+  sparks.color2    = new Color4(1.0, 0.6, 0.1, 1.0);
+  sparks.colorDead = new Color4(0.3, 0.1, 0.0, 0.0);
 
-  sparks.color1    = new Color4(1.0, 1.0, 0.8, 1.0);   // near-white hot
-  sparks.color2    = new Color4(1.0, 0.6, 0.1, 1.0);   // golden
-  sparks.colorDead = new Color4(0.3, 0.1, 0.0,  0.0);
-
-  sparks.gravity = new Vector3(0, -6, 0);
-
-  sparks.blendMode       = ParticleSystem.BLENDMODE_ADD;
-  sparks.manualEmitCount = 45;
-  sparks.disposeOnStop   = true;
+  sparks.gravity   = new Vector3(0, -8, 0);
+  sparks.blendMode = ParticleSystem.BLENDMODE_ADD;
   sparks.start();
 
-  // ── Smoke puff (slower, larger, fades to grey) ───────────────────────────
-  const smoke = new ParticleSystem("blast_smoke", 40, scene);
-  smoke.particleTexture = getBlastTexture(scene);
+  // ── Smoke puff ─────────────────────────────────────────────────────────────
+  const smoke = new ParticleSystem("blast_smoke", 60, scene);
+  smoke.particleTexture       = tex;
+  smoke.emitter               = pos.clone();
+  smoke.particleEmitterType   = new SphereParticleEmitter(0.25);
 
-  smoke.emitter = position.clone();
-  smoke.particleEmitterType = new SphereParticleEmitter(0.2);
+  smoke.emitRate           = 600;
+  smoke.targetStopDuration = 0.07;
+  smoke.disposeOnStop      = true;
 
-  smoke.minEmitPower = 0.8;
-  smoke.maxEmitPower = 2.5;
-
-  smoke.minLifeTime  = 0.4;
-  smoke.maxLifeTime  = 0.85;
-
-  smoke.minSize = 0.20;
-  smoke.maxSize = 0.55;
+  smoke.minEmitPower = 1;
+  smoke.maxEmitPower = 3;
+  smoke.minLifeTime  = 0.5;
+  smoke.maxLifeTime  = 1.0;
+  smoke.minSize = 0.9;
+  smoke.maxSize = 2.2;
 
   smoke.color1    = new Color4(0.55, 0.55, 0.55, 0.5);
   smoke.color2    = new Color4(0.3,  0.3,  0.3,  0.4);
   smoke.colorDead = new Color4(0.15, 0.15, 0.15, 0.0);
 
-  smoke.gravity = new Vector3(0, 1.5, 0);  // drift upward
-
-  smoke.blendMode       = ParticleSystem.BLENDMODE_STANDARD;
-  smoke.manualEmitCount = 28;
-  smoke.disposeOnStop   = true;
+  smoke.gravity   = new Vector3(0, 2, 0);
+  smoke.blendMode = ParticleSystem.BLENDMODE_STANDARD;
   smoke.start();
+}
+
+/**
+ * Fire blast at the mower position, and optionally at a second impact
+ * point (e.g. where a rabbit hit the trail — which may be far from the mower).
+ */
+export function spawnBlast(scene: Scene, mowerPos: Vector3, impactPos?: Vector3): void {
+  spawnBurstAt(scene, mowerPos);
+  if (impactPos && impactPos.subtract(mowerPos).length() > 1.5) {
+    // Only add second blast if the impact is far enough away to be worth it
+    spawnBurstAt(scene, impactPos);
+  }
 }
